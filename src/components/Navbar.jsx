@@ -13,9 +13,9 @@ const Navbar = () => {
         <div className="bg-gray-800 text-white px-4 md:px-40 py-2">
             <ul>
                 <Link className="mr-4" to="/">Home</Link>
-                <Link className="mr-4" to="about">About</Link>
-                <Link className="mr-4" to="search">Search</Link>
-                <Link className="mr-4" to="news">News</Link>
+                <Link className="mr-4" to="/about">About</Link>
+                <Link className="mr-4" to="/search">Search</Link>
+                <Link className="mr-4" to="/news">News</Link>
             </ul>
         </div>
         </div>

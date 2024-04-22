@@ -13,6 +13,10 @@ import Search from './pages/Search/Search';
 import BasicSearch from './pages/BasicSearch/BasicSearch';
 import AdvancedSearch from './pages/AdvancedSearch/AdvancedSearch';
 import IndividualCard from './pages/AdvancedSearch/IndividualCard';
+import ANews from './pages/News/ANews';
+import SearchLayout from './pages/Layout/SearchLayout';
+import SearchTechnique from './pages/SearchTechnique/SearchTechnique';
+import ShowImage from './pages/SearchTechnique/ShowImage';
 
 
 const router = createBrowserRouter([
@@ -33,6 +37,11 @@ const router = createBrowserRouter([
         element: <News></News>
       },
       {
+        path:"news/:id",
+        element: <ANews></ANews>,
+        loader: ()=> fetch('news.json')
+      },
+      {
         path:"search",
         element: <Search></Search>
       },
@@ -51,6 +60,20 @@ const router = createBrowserRouter([
       }
     ]
   },
+  {
+    path:'searchtec',
+    element: <SearchLayout></SearchLayout>,
+    children: [
+      {
+        path: 'all',
+        element: <SearchTechnique></SearchTechnique>
+      },
+      {
+        path: 'showimg/:imageId',
+        element: <ShowImage></ShowImage>
+      }
+    ]
+  }
 ]);
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

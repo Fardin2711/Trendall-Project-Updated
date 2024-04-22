@@ -1,8 +1,13 @@
+import Cover from "./Cover";
+import NewsSection from "./NewsSection";
+import SearchSection from "./SearchSection";
 
 const Home = () => {
     return (
         <div>
-            this is home page
+            <Cover></Cover>
+            <NewsSection></NewsSection>
+            <SearchSection></SearchSection>
         </div>
     );
 };
