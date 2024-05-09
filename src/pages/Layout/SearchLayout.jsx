@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import searching from '../../assets/searchError.png';
+
 
 const SearchLayout = () => {
     const [openAnswers, setOpenAnswers] = useState({});
     const [activeFilters, setActiveFilters] = useState([]);
+    const [artifacts, setArtifacts] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [visiblePages, setVisiblePages] = useState(10);
+    const [startIndex, setStartIndex] = useState(0);
+    const [endIndex, setEndIndex] = useState(visiblePages - 1);
+
+
+
+
 
     // Function to toggle the visibility of the answer
     const toggleAnswer = (targetId) => {
@@ -14,23 +26,52 @@ const SearchLayout = () => {
         }));
     };
 
-    // const [images, setImageId] = useState([]);
-    // useEffect(() => {
-    //     fetch('/Images.json')
-    //         .then(response => response.json())
-    //         .then(data => setImageId(data))
-    // }, []);
+    // fetching all data from server - mongodb database
+    const { data: allArtefacts = [], isPending, error } = useQuery({
+        queryKey: ['all-artefacts'],
+        queryFn: async () => {
+            const res = await fetch('https://trendall-research-center-server.vercel.app/artefacts-all');
+            return res.json();
+        },
+        enabled: !!activeFilters, // Fetch data only when activeFilters change
+    });
 
-    const [artifacts, setArtifacts] = useState([]);
+//   Local computer server: http://localhost:5000/artefacts-all
+
     useEffect(() => {
-        fetch('/dummyDataSearch.json')
-            .then(response => response.json())
-            .then(data => setArtifacts(data))
-    }, [activeFilters]); // Update artifacts when activeFilters change
+        if (!isPending && !error) {
+            setArtifacts(allArtefacts);
+        }
+    }, [allArtefacts, isPending, error]);
+
+    if (isPending) {
+    return (
+    <div className='flex space-x-3 justify-center items-center bg-white h-screen '>
+    <span className='sr-only'>Loading...</span>
+    <div className='h-4 w-4 bg-red-600 rounded-full animate-bounce [animation-delay:-0.3s]'></div>
+	<div className='h-4 w-4 bg-red-600 rounded-full animate-bounce [animation-delay:-0.15s]'></div>
+	<div className='h-4 w-4 bg-red-600 rounded-full animate-bounce'></div>
+    </div>
+    );
+    }
+
+    if (error) {
+        return 'An error has occurred: ' + error.message;
+    }
+    // console.log(artifacts)
+
+//     const [artifacts, setArtifacts] = useState([]);
+//     useEffect(() => {
+//         fetch('/dummyDataSearch.json')
+//             .then(response => response.json())
+//             .then(data => setArtifacts(data))
+//     }, [activeFilters]); // Update artifacts when activeFilters change
+
+
 
     let desired_artifact = (details) => {
         let unique_values = [
-            ...new Set(details.map((element) => element.artefactType)),
+            ...new Set(details.map((element) => element["Artefact Type"])),
         ];
         return unique_values;
     };
@@ -38,7 +79,7 @@ const SearchLayout = () => {
 
     let desired_painter = (details) => {
         let unique_values = [
-            ...new Set(details.map((element) => element.painter)),
+            ...new Set(details.map((element) => element.Painter)),
         ];
         return unique_values;
     };
@@ -46,7 +87,7 @@ const SearchLayout = () => {
 
     let desired_provenance = (details) => {
         let unique_values = [
-            ...new Set(details.map((element) => element.provenance)),
+            ...new Set(details.map((element) => element.Provenance)),
         ];
         return unique_values;
     };
@@ -54,7 +95,7 @@ const SearchLayout = () => {
 
     let desired_dimensions = (details) => {
         let unique_values = [
-            ...new Set(details.map((element) => element.physicalDimensions)),
+            ...new Set(details.map((element) => element["Physical Dimensions"])),
         ];
         return unique_values;
     };
@@ -78,7 +119,7 @@ const SearchLayout = () => {
         activeFilters.forEach(filter => {
             filteredArtifacts = filteredArtifacts.filter(artifact => {
                 // Check if the artifact matches the current filter
-                return artifact.artefactType === filter || artifact.painter === filter || artifact.provenance === filter || artifact.physicalDimensions === filter;
+                return artifact["Artefact Type"] === filter || artifact.Painter === filter || artifact.Provenance === filter || artifact["Physical Dimensions"] === filter;
             });
         });
         return filteredArtifacts;
@@ -97,10 +138,43 @@ const SearchLayout = () => {
         // console.log(search);
      }
 
+
+
+
+//Pagination code here ...
+
+
+    const itemsPerPage= 30;
+
+    const totalPages = Math.ceil( filterArtifacts().length / itemsPerPage);
+    const handleClick = (type) => {
+        if (type === "prev") {
+          setCurrentPage((prevPage) => prevPage - 1);
+          if (currentPage - 1 < visiblePages - 1) {
+            setVisiblePages((prevVisible) => prevVisible - 1);
+            setStartIndex((prevStart) => prevStart - 1);
+            setEndIndex((prevEnd) => prevEnd - 1);
+          }
+        } else if (type === "next") {
+          setCurrentPage((prevPage) => prevPage + 1);
+          if (currentPage + 1 > visiblePages) {
+            setVisiblePages((prevVisible) => prevVisible + 1);
+            setStartIndex((prevStart) => prevStart + 1);
+            setEndIndex((prevEnd) => prevEnd + 1);
+          }
+        } else {
+          setCurrentPage(type);
+        }
+      };
+    
+      const paginatedData = filterArtifacts().slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      );
     return (
         <>
             <Navbar />
-            <div className="grid grid-cols-10 w-[80%] mx-auto">
+            <div className="grid grid-cols-12 w-[90%] mx-auto">
                 <div className="col-span-3 bg-white h-screen ">
                     <div className="bg-white pt-14 menu overflow-y-scroll max-h-screen">
 
@@ -108,49 +182,18 @@ const SearchLayout = () => {
                         {/* Active filters */}
                         <div className="mb-5 ml-5">
                             <h3 className="font-bold text-lg bg-[#E22232] text-white py-1 px-4 rounded">Active filters:</h3>
-                            <ul className="mt-2 bg-slate-100 p-2">
+                            <ul className="mt-2 bg-slate-100 p-4">
                                 {activeFilters.map((filter, index) => (
-                                    <li key={index} className="text-sm text-gray-600">
+                                    <li key={index} className="text-md text-gray-600">
                                         {filter}
                                         <button onClick={() => handleFilterClick(filter)} className="ml-1 text-red-500">x</button>
                                     </li>
                                 ))}
                             </ul>
-                            <button onClick={clearFilters} className="mt-2 text-sm text-gray-600 hover:text-red-500">Clear all</button>
+                            <button onClick={clearFilters} className="mt-2 text-md font-semibold text-gray-600 hover:text-red-500">Clear all</button>
                         </div>
 
 
-                        {/* <section className="max-w-5xl mx-auto">
-                            <div className="w-full px-7 md:px-10 xl:px-2 bg-white">
-                                <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-                                    <div className="border-b border-[#0A071B]/10">
-                                        <button
-                                            className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-                                            onClick={() => toggleAnswer('answer-1')} >
-                                            <span>ImageId</span>
-                                            <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-                                                openAnswers['answer-1'] ? 'rotate-180' : '' // Rotate if this answer is open
-                                            }`}
-                                                viewBox="0 0 24 24"
-                                                xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-                                            </svg>
-                                        </button>
-                                        {
-                                            images.map(imgg => <div key={imgg.ImageID}
-                                                className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium flex justify-between ${
-                                                    openAnswers['answer-1'] ? '' : 'hidden' // Show if this answer is open
-                                                    }`}
-                                                id="answer-1"
-                                            >
-                                                <Link to={`/searchtec/showimg/${imgg.ImageID}`} className="hover:text-red-500">{imgg.ImageID}</Link>
-                                               
-                                            </div>)
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        </section> */}
 
                         <section className="max-w-5xl mx-auto ">
                             <div className="w-full px-7 md:px-10 xl:px-2 pt-4 bg-white">
@@ -402,269 +445,78 @@ const SearchLayout = () => {
                         {/* Add more sections as needed */}
                     </div>
                 </div>
-                <div className="col-span-7 pt-14 pl-6">
-                    {/* Display filtered artifacts */}
-                    {filterArtifacts().map((artifact, index) => (
-                        <div key={index} className="border-b border-gray-300 px-3 py-4">
-                            <img className="h-28 rounded" src={artifact.URL} alt="" />
-                            <h2 className="text-xl font-bold text-gray-800">{artifact.artefactType}</h2>
-                            <h3 className="text-red-600">Painter: {artifact.painter} || Dimension: {artifact.physicalDimensions}</h3>
 
-                            <p className="text-gray-600"><span className="font-semibold">Provenance:</span> {artifact.provenance}</p>
-                            <p className="text-gray-600"><span className="font-semibold">Publications:</span> {artifact.publications}</p>
-                            <p className="text-gray-600"><span className="font-semibold">Description:</span> {artifact.description}</p>
+                <div className="col-span-9 ">
+                <div className="pt-14 pl-6 overflow-y-scroll max-h-screen">
+                    {/* Display filtered artifacts */}
+
+                    {paginatedData.length>0 ? paginatedData.map((artifact, index) => (
+                        <div key={index} className="border-b border-gray-300 px-4 py-4">
+                            <img className="h-28 rounded" src={artifact.URL ? artifact.URL: artifact.ImageId} alt={artifact.ImageId} />
+                            <h2 className="text-xl font-bold text-gray-800">{artifact["Artefact Type"]}</h2>
+                            <h3 className="text-red-600"><span className="font-semibold">Painter:  </span> {artifact.Painter}</h3>
+                            <h3 className="text-red-600"><span className="font-semibold">Dimension:</span> {artifact["Physical Dimensions"]}</h3>
+                            <h3 className="text-gray-600"><span className="font-semibold">Artefact Number:</span> {artifact["Artefact Number"]}  </h3>
+
+                            <p className="text-gray-600"><span className="font-semibold">Chapter:</span> {artifact.Chapter}</p>
+                            <p className="text-gray-600"><span className="font-semibold">Provenance:</span> {artifact.Provenance}</p>
+                            <p className="text-gray-600"><span className="font-semibold">Publications:</span> {artifact.Publications}</p>
+                            <p className="text-gray-600"><span className="font-semibold">Description:</span> {artifact.Description}</p>
                             {/* Add more details as needed */}
                         </div>
-                    ))}
+                    )): <div className="flex flex-col justify-center items-center">
+                        <img className="h-64 w-64" src={searching} alt="" />
+                        <h1 className="text-center font-semibold text-2xl text-red-600">No records found</h1>
+                        <p className="mt-2">There are no results matching your search '{activeFilters}'. <br />
+<strong>Suggestions:</strong>
+<li>Make sure that all words are spelled correctly.</li>
+</p>
+                        </div>}
                     {/* <Outlet /> */}
-                </div>
-            </div>
-        </>
+                    </div>
+
+
+
+{/* pagination here */}
+{paginatedData.length>0 ? <div className="flex flex-col items-center justify-center">
+    <div className="my-8">
+        <button
+          onClick={() => handleClick("prev")}
+          disabled={currentPage === 1}
+          className="px-4 py-2 mr-2 bg-red-600 text-white rounded">
+          Prev
+        </button>
+        {[...Array(totalPages).keys()]
+          .slice(startIndex, endIndex + 1)
+          .map((page) => (
+            <button
+              key={page}
+              onClick={() => handleClick(page + 1)}
+              className={`px-4 py-2 mr-2 ${
+                currentPage === page + 1
+                  ? "bg-red-600 text-white"
+                  : "bg-gray-200"
+              } rounded`}
+            >
+              {page + 1}
+            </button>
+          ))}
+        <button
+          onClick={() => handleClick("next")}
+          disabled={currentPage === totalPages}
+          className="px-4 py-2 ml-2 bg-red-600 text-white rounded"
+        >
+          Next
+        </button>
+      </div>
+
+    </div>:''
+}            
+
+        </div>
+    </div>
+</>
     );
 };
 
 export default SearchLayout;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import { useEffect, useState } from "react";
-// import Navbar from "../../components/Navbar";
-// import { Link, Outlet } from "react-router-dom";
-
-// const SearchLayout = () => {
-//     const [openAnswers, setOpenAnswers] = useState({});
-
-//     // Function to toggle the visibility of the answer
-//     const toggleAnswer = (targetId) => {
-//         setOpenAnswers(prevState => ({
-//             ...prevState,
-//             [targetId]: !prevState[targetId] // Toggle the visibility of the target answer
-//         }));
-//     };
-
-//     const [images,setImageId] = useState([])
-//     useEffect(() =>{
-//         fetch('/Images.json')
-//         .then(response => response.json())
-//         .then(data => setImageId(data))
-//     },[])
-
-//     const [artifact,setArtifact] = useState([])
-//     useEffect(() =>{
-//         fetch('/dummyDataSearch.json')
-//         .then(response => response.json())
-//         .then(data => setArtifact(data))
-//     },[])
-//     //  console.log(artifact)
-//     let desired_artifact = (details) => {
-//         let unique_values = [
-//             ...new Set(details.map((element) => element.artefactType)),
-//         ];
-//         return unique_values;
-//     };
-     
-//     const uniqueArtifactType = desired_artifact(artifact);
-//     console.log(uniqueArtifactType)
-
-//     return (
-//         <>
-//             <Navbar />
-//             <div className="grid grid-cols-10 w-[80%] mx-auto">
-//                 <div className="col-span-3 bg-white h-screen ">
-//                     <div className="bg-white pt-14 menu overflow-y-scroll max-h-screen">
-
-
-//                         <section className="max-w-5xl mx-auto">
-//                             <div className="w-full px-7 md:px-10 xl:px-2 bg-white">
-//                                 <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-//                                     <div className="border-b border-[#0A071B]/10">
-//                                         <button
-//                                             className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-//                                             onClick={() => toggleAnswer('answer-1')} >
-//                                             <span>ImageId</span>
-//                                             <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-//                                                 openAnswers['answer-1'] ? 'rotate-180' : '' // Rotate if this answer is open
-//                                             }`}
-//                                                 viewBox="0 0 24 24"
-//                                                 xmlns="http://www.w3.org/2000/svg">
-//                                                 <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-//                                             </svg>
-//                                         </button>
-//                                         {
-//                                             images.map(imgg=><div key={imgg.ImageID}
-//                                                 className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium flex justify-between ${
-//                                                     openAnswers['answer-1'] ? '' : 'hidden' // Show if this answer is open
-//                                                     }`}
-//                                                 id="answer-1"
-//                                             >
-//                                                 <Link to={`/searchtec/showimg/${imgg.ImageID}`}  className="hover:text-red-500">{imgg.ImageID}</Link>
-//                                                 <Link to="/searchtec/all" className=" ml-2 hover:text-red-500" >Cancel</Link>
-//                                             </div> )
-//                                         }                                        
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                         </section>
-                        
-//                         <section className="max-w-5xl mx-auto ">
-//                             <div className="w-full px-7 md:px-10 xl:px-2 pt-4 bg-white">
-//                                 <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-//                                     <div className="border-b border-[#0A071B]/10">
-//                                         <button
-//                                             className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-//                                             onClick={() => toggleAnswer('answer-2')} >
-//                                             <span>Artefact Type</span>
-//                                             <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-//                                                 openAnswers['answer-2'] ? 'rotate-180' : '' // Rotate if this answer is open
-//                                             }`}
-//                                                 viewBox="0 0 24 24"
-//                                                 xmlns="http://www.w3.org/2000/svg">
-//                                                 <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-//                                             </svg>
-//                                         </button>
-//                                        {
-//                                         uniqueArtifactType.map(aArtifact=>  <div key={aArtifact}
-//                                             className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium ${
-//                                                 openAnswers['answer-2'] ? '' : 'hidden' // Show if this answer is open
-//                                                 }`}
-//                                             id="answer-2"
-//                                         >
-//                                             <Link to="" className="hover:text-red-500">{aArtifact}</Link>
-//                                         </div>)
-//                                        }
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                         </section>
-
-//                         {/* Third Section */}
-//                         <section className="max-w-5xl mx-auto ">
-//                             <div className="w-full px-7 md:px-10 xl:px-2 pt-4 bg-white">
-//                                 <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-//                                     <div className="border-b border-[#0A071B]/10">
-//                                         <button
-//                                             className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-//                                             onClick={() => toggleAnswer('answer-3')} >
-//                                             <span>Dates</span>
-//                                             <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-//                                                 openAnswers['answer-3'] ? 'rotate-180' : '' // Rotate if this answer is open
-//                                             }`}
-//                                                 viewBox="0 0 24 24"
-//                                                 xmlns="http://www.w3.org/2000/svg">
-//                                                 <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-//                                             </svg>
-//                                         </button>
-//                                         <div
-//                                             className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium ${
-//                                                 openAnswers['answer-3'] ? '' : 'hidden' // Show if this answer is open
-//                                                 }`}
-//                                             id="answer-3"
-//                                         >
-//                                             <Link to="" className="hover:text-red-500">5 September 2015</Link>
-//                                         </div>
-//                                         <div
-//                                             className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium ${
-//                                                 openAnswers['answer-3'] ? '' : 'hidden' // Show if this answer is open
-//                                                 }`}
-//                                             id="answer-3"
-//                                         >
-//                                             <Link to="" className="hover:text-red-500">7 September 2017</Link>
-//                                         </div>
-//                                         {/* Add more answers as needed */}
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                         </section>
-
-//                         {/* Fourth Section */}
-//                         <section className="max-w-5xl mx-auto ">
-//                             <div className="w-full px-7 md:px-10 xl:px-2 pt-4 bg-white">
-//                                 <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-//                                     <div className="border-b border-[#0A071B]/10">
-//                                         <button
-//                                             className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-//                                             onClick={() => toggleAnswer('answer-4')} >
-//                                             <span>Location</span>
-//                                             <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-//                                                 openAnswers['answer-4'] ? 'rotate-180' : '' // Rotate if this answer is open
-//                                             }`}
-//                                                 viewBox="0 0 24 24"
-//                                                 xmlns="http://www.w3.org/2000/svg">
-//                                                 <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-//                                             </svg>
-//                                         </button>
-//                                         {/* Add more answers as needed */}
-//                                         <div
-//                                             className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium ${
-//                                                 openAnswers['answer-4'] ? '' : 'hidden' // Show if this answer is open
-//                                                 }`}
-//                                             id="answer-4"
-//                                         >
-//                                             <Link to="" className="hover:text-red-500">Australia</Link>
-//                                         </div>
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                         </section>
-
-//                         {/* Fifth Section */}
-//                         <section className="max-w-5xl mx-auto ">
-//                             <div className="w-full px-7 md:px-10 xl:px-2 pt-4 bg-white">
-//                                 <div className="mx-auto w-full max-w-5xl border border-slate-400/20 rounded-lg bg-white ">
-//                                     <div className="border-b border-[#0A071B]/10">
-//                                         <button
-//                                             className="question-btn flex w-full items-start gap-x-5 justify-between rounded-lg text-left text-lg font-bold text-slate-800 focus:outline-none p-5"
-//                                             onClick={() => toggleAnswer('answer-5')} >
-//                                             <span>Subjects</span>
-//                                             <svg className={`mt-1.5 md:mt-0 flex-shrink-0 transform h-5 w-5 text-[#5B5675] ${
-//                                                 openAnswers['answer-5'] ? 'rotate-180' : '' // Rotate if this answer is open
-//                                             }`}
-//                                                 viewBox="0 0 24 24"
-//                                                 xmlns="http://www.w3.org/2000/svg">
-//                                                 <path d="M16.293 9.293 12 13.586 7.707 9.293l-1.414 1.414L12 16.414l5.707-5.707z"></path>
-//                                             </svg>
-//                                         </button>
-//                                         {/* Add more answers as needed */}
-//                                         <div
-//                                             className={`answer pt-2 pb-5 px-5 text-sm lg:text-base text-[#343E3A] font-medium ${
-//                                                 openAnswers['answer-5'] ? '' : 'hidden' // Show if this answer is open
-//                                                 }`}
-//                                             id="answer-5"
-//                                         >
-//                                             <Link to="" className="hover:text-red-500">Science</Link>
-//                                         </div>
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                         </section>
-
-//                         {/* Add more sections as needed */}
-//                     </div>
-//                 </div>
-//                 <div className="col-span-7 pt-14 pl-6">
-//                     <Outlet />
-//                 </div>
-//             </div>
-//         </>
-//     );
-// };
-
-// export default SearchLayout;
-
